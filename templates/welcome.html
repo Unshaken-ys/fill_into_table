@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>欢迎 - 学生教务系统</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; }
+        .welcome { text-align: center; margin-top: 80px; }
+        .welcome h1 { color: #333; }
+        .welcome p { color: #666; }
+        .welcome .enter {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 24px;
+            background: #3b52d4;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 4px;
+        }
+        .welcome a { color: #3b52d4; }
+    </style>
+</head>
+<body>
+    {% include '_nav.html' %}
+    <div class="welcome">
+        <h1>欢迎使用学生教务系统</h1>
+        <p>学生信息管理 · 课程选课 · 数据导出</p>
+        {% if session.get('admin') %}
+            <a class="enter" href="/student/list">进入学生列表</a>
+        {% else %}
+            <p>请先<a href="/student/login">登录</a>后查看学生列表</p>
+        {% endif %}
+    </div>
+</body>
+</html>

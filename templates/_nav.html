@@ -1,0 +1,35 @@
+<style>
+    .topnav {
+        background-color: #999;
+        color: #fff;
+        height: 50px;
+        display: flex;
+        align-items: center;
+        padding: 0 20px;
+    }
+    .topnav a { color: #fff; text-decoration: none; margin: 0 12px; }
+    .topnav a:hover { text-decoration: underline; }
+    .topnav a.active { font-weight: bold; text-decoration: underline; }
+    .topnav .brand { font-weight: bold; font-size: 16px; margin-right: 20px; }
+    .topnav .links { flex: 1; }
+    .topnav .auth a { margin: 0 6px; }
+    .topnav .auth span { margin: 0 6px; color: #eee; }
+</style>
+<div class="topnav">
+    <span class="brand">学生教务系统</span>
+    <div class="links">
+        <a href="/" class="{{ 'active' if request.path == '/' }}">欢迎首页</a>
+        <a href="/student/list" class="{{ 'active' if request.path == '/student/list' }}">学生列表</a>
+        <a href="/student/choose_class" class="{{ 'active' if request.path == '/student/choose_class' }}">学生选课</a>
+        <a href="/student/insert" class="{{ 'active' if request.path == '/student/insert' }}">新增学生</a>
+    </div>
+    <div class="auth">
+        {% if session.get('admin') %}
+            <span>欢迎，{{ session.get('admin') }}</span>
+            <a href="/student/logout">退出登录</a>
+        {% else %}
+            <a href="/student/login">登录</a>
+            <a href="/student/register">注册</a>
+        {% endif %}
+    </div>
+</div>

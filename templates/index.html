@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>学生列表</title>
+    <style>
+        table { border-collapse: collapse; width: 60%; margin: 20px auto; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background: #f2f2f2; }
+        h1 { text-align:center; }
+
+        /* 搜索 */
+        .search {
+            width: 40%;
+            margin: 0 auto;
+            text-align:center;
+        }
+        /* 搜索提示信息 */
+        .message {
+            width: 60%;
+            margin: 15px auto;
+            text-align: center;
+            color: #555;
+        }
+        /* 插入新数据 */
+        .right-block{
+            width: 60%;
+            margin: 10px auto;
+            text-align: right;
+        }
+        /* 分页样式 */
+        .page-box {
+            width: 60%;
+            margin: 0 auto;
+            text-align: center;
+        }
+        .page-box a {
+            padding: 4px 10px;
+            margin: 0 4px;
+            border: 1px solid #999;
+            text-decoration: none;
+            color: #333;
+        }
+        .page-box a.active {
+            background: #007bff;
+            color: #fff;
+            border-color: #007bff;
+        }
+        .disabled {
+            padding: 4px 10px;
+            margin: 0 4px;
+            color: #aaa;
+            border: 1px solid #eee;
+        }
+
+        .page-info {
+            width: 60%;
+            margin: 30px auto;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    {% include '_nav.html' %}
+
+    <h1>学生列表</h1>
+    <div class='search'>
+       <form method="GET" action="/student/search">
+        <input type="text" name="student_id" placeholder="学号（可选）" value="{{ student_id|default('') }}">
+        <input type="text" name="student_name" placeholder="姓名（可选）" value="{{ student_name|default('') }}">
+        <input type="text" name="college" placeholder="学院（可选）" value="{{ college|default('') }}">
+        <button type='submit'>搜索</button>
+       </form>
+    </div>
+    {% if message %}
+    <p class="message">{{ message }}</p>
+    {% endif %}
+    <!-- 表 -->
+    <table>
+        <thead>
+            <tr>
+                {% for key in key_list %}
+                    <th>{{ key }}</th>
+                {% endfor %}
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for student in value_list %}
+                <tr>
+                    <td>{{ student[0] }}</td>
+                    <td>{{ student[1] }}</td>
+                    <td>{{ student[2] }}</td>
+                    <td>{{ student[3] }}</td>
+                    <td>{{ student[4] }}</td>
+                    <td>
+                        <a href="/student/delete?id={{student[0]}}&page={{page}}">删除</a>
+                        |
+                        <a href="/student/update?id={{student[0]}}&page={{page}}">修改</a>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- 插入学生信息 -->
+    <div>
+    <p class="right-block"><a  href="/student/insert?page={{page}}">新增学生信息</a></p>
+    </div>
+    <!-- 学生选课 -->
+    <div>
+    <p class="right-block"><a  href="/student/choose_class">学生选课</a></p>
+    </div>
+
+    <!-- 导出excel -->
+    <div>
+       <form method="GET" action="/student/to_excel">
+        <input type="text" name="file_name" placeholder="文件名称（可选）" >
+        {% if is_search %}
+        <input type="hidden" name="student_id" value="{{ student_id }}">
+        <input type="hidden" name="student_name" value="{{ student_name }}">
+        <input type="hidden" name="college" value="{{ college }}">
+        {% endif %}
+        <button type='submit'>导出Excel</button>
+       </form>
+    </div>
+
+
+    <p class = 'page-info'>当前第{{page}}页，共{{total_page}}页</p>
+
+    <!-- 分页区域， href 路由跳转 -->
+    <div class="page-box">
+
+        {% if page == 1 %}
+            <span class="disabled">上一页</span>
+        {% elif is_search %}
+            <a href="{{ url_for('student_search', student_id=student_id, student_name=student_name, college=college, page=page - 1) }}">上一页</a>
+        {% else %}
+            <a href="/student/list?page={{ page - 1 }}">上一页</a>
+        {% endif %}
+
+
+        {% if page == total_page %}
+            <span class="disabled">下一页</span>
+        {% elif is_search %}
+            <a href="{{ url_for('student_search', student_id=student_id, student_name=student_name, college=college, page=page + 1) }}">下一页</a>
+        {% else %}
+            <a href="/student/list?page={{ page + 1 }}">下一页</a>
+        {% endif %}
+    </div>
+
+    {% if is_search %}
+    <!-- 搜索模式：提供回完整列表的入口 -->
+    <p class="page-info"><a href="/student/list">返回完整列表</a></p>
+    {% endif %}
+</body>
+</html>
