@@ -1,25 +1,16 @@
-from flask import Flask, render_template, request, redirect, url_for, session
-from functools import wraps
+from flask import Flask, render_template, request, redirect, url_for, session, send_file
+from io import BytesIO
 import pymysql
 import math
 import os
 from config  import DB_CONFIG
 # from config_exemple import DB_CONFIG
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.secret_key = 'decorator_train_secret_key'
 
-
-def login_required(view):
-    """登录保护：未登录时跳转到登录页"""
-    @wraps(view)
-    def wrapped(*args, **kwargs):
-        if not session.get('admin'):
-            return redirect(url_for('student_login'))
-        return view(*args, **kwargs)
-    return wrapped
 
 # 数据库配置
 
@@ -128,7 +119,6 @@ def index():
 
 # ====== 学生列表（分页，需登录） ======
 @app.route('/student/list')
-@login_required
 def student_list():
     page = get_page()
 
@@ -149,7 +139,6 @@ def student_list():
 
 # ====== 搜索 ======
 @app.route('/student/search')
-@login_required
 def student_search():
     student_id, student_name, college = get_search_params()
     page = get_page()
@@ -183,7 +172,6 @@ def student_search():
 
 # ====== 返回指定页面 ======
 @app.route('/student/back')
-@login_required
 def back_to_page():
     page = get_page()
     return redirect(f'/student/list?page={page}')
@@ -191,7 +179,6 @@ def back_to_page():
 
 # ====== 删除 ======
 @app.route('/student/delete')
-@login_required
 def student_delete():
     student_id = request.args.get('id')
     page = get_page()
@@ -203,7 +190,6 @@ def student_delete():
 
 # ====== 修改界面（GET） ======
 @app.route('/student/update', methods=['GET'])
-@login_required
 def student_update():
     student_id = request.args.get('id')
     page = get_page()
@@ -224,7 +210,6 @@ def student_update():
 
 # ====== 执行修改（POST） ======
 @app.route('/student/update', methods=['POST'])
-@login_required
 def student_update_post():
     # 优先从表单取（隐藏字段），兼容从 URL 参数取
     student_id = request.form.get('student_id') or request.args.get('id')
@@ -244,7 +229,6 @@ def student_update_post():
 
 # ====== 新增界面（GET）======
 @app.route('/student/insert', methods=['GET'])
-@login_required
 def student_insert_page():
     page = get_page()
 
@@ -257,7 +241,6 @@ def student_insert_page():
 
 # ====== 执行新增（POST） ======
 @app.route('/student/insert', methods=['POST'])
-@login_required
 def student_insert():
     page = get_page()
     student_id = request.form.get('student_id')
@@ -279,7 +262,6 @@ def student_insert():
 
 # ====== 导出excel ======
 @app.route('/student/to_excel')
-@login_required
 def to_excel():
     # 文件名（表单为 GET 提交，参数在 URL 上）
     file_name = request.args.get('file_name', '').strip()
@@ -319,7 +301,6 @@ def to_excel():
 
 # ====== 学生选课系统（GET：选课界面） ======
 @app.route('/student/choose_class')
-@login_required
 def choose_class():
     # 左侧：课程列表（课程编号、课程名称）—— 分页
     course_page = request.args.get('course_page', 1, type=int)
@@ -386,7 +367,6 @@ def choose_class():
 
 # ====== 切换学生（POST）：保存当前学生本页勾选进草稿，再按新学生重定向 ======
 @app.route('/student/choose_class/switch', methods=['POST'])
-@login_required
 def choose_class_switch():
     current_select_id = request.form.get('current_select_id', '').strip()
     new_select_id = request.form.get('new_student_id', '').strip()
@@ -408,7 +388,6 @@ def choose_class_switch():
 
 # ====== 课程翻页（POST）：先把当前页勾选合并进草稿，再重定向到目标页 ======
 @app.route('/student/choose_class/course_page', methods=['POST'])
-@login_required
 def choose_class_course_page():
     select_id = request.form.get('student_id', '').strip()
     submitted_ids = request.form.getlist('course_ids')
@@ -428,7 +407,6 @@ def choose_class_course_page():
 
 # ====== 学生选课系统（POST：保存选课结果） ======
 @app.route('/student/choose_class/submit', methods=['POST'])
-@login_required
 def choose_class_submit():
     student_id = request.form.get('student_id', '').strip()
     submitted_ids = request.form.getlist('course_ids')
@@ -536,6 +514,56 @@ def student_register():
         return render_template('student_login.html', message='注册成功，请登录')
 
     return render_template('student_register.html')
+# ====== 导入信息（Excel 批量导入学生） ======
+# 首行为表头（学号、姓名、学院、性别），第二行起为数据；选课情况由系统维护
+
+#处理
+def _cell_to_str(value):
+    """把 Excel 单元格值转成去空格的字符串；数字学号（如 1.0）转成 '1'。"""
+    if value is None:
+        return ''
+    if isinstance(value, float) and value.is_integer():
+        value = int(value)
+    return str(value).strip()
+
+
+@app.route('/student/import', methods=['POST'])
+def student_import():
+    f = request.files.get('uploadFile')
+
+    if not f or not f.filename or not f.filename.endswith('.xlsx'):
+        return "请选择 .xlsx 格式文件！<a href='javascript:history.back()'>返回</a>"
+
+    try:
+        wb = load_workbook(f, read_only=True, data_only=True)
+    except Exception:
+        return "Excel 文件解析失败！<a href='javascript:history.back()'>返回</a>"
+
+    # 逐行导入：学号为空或已存在的行直接跳过
+    success = 0
+    skip = 0
+    for row in wb.active.iter_rows(min_row=2, values_only=True):
+        cells = (list(row) + [None] * 4)[:4]
+        student_id, student_name, college, gender = (_cell_to_str(v) for v in cells)
+
+        if not student_id or db_query_one(
+                "SELECT 1 FROM student WHERE student_id = %s", (student_id,)):
+            skip += 1
+            continue
+
+        db_execute(
+            "INSERT INTO student (student_id, student_name, college, gender) "
+            "VALUES (%s, %s, %s, %s)",
+            (student_id, student_name, college, gender)
+        )
+        success += 1
+
+    wb.close()
+    return f"导入完成：成功 {success} 条，跳过 {skip} 条（空行或学号重复）。" \
+           f"<br><a href='javascript:history.back()'>返回</a>"
+
+
+
 
 
 # ====== 退出登录 ======

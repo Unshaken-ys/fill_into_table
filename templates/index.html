@@ -111,6 +111,13 @@
     <div>
     <p class="right-block"><a  href="/student/choose_class">学生选课</a></p>
     </div>
+    <!-- 导入信息 -->
+    <div>
+       <form method="POST" action="/student/import" enctype="multipart/form-data">
+        <input type="file" name="uploadFile" accept=".xlsx" required>
+        <button type='submit'>导入Excel</button>
+       </form>
+    </div>
 
     <!-- 导出excel -->
     <div>
