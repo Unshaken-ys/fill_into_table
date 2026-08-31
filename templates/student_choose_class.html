@@ -49,6 +49,21 @@
         button{
             padding:8px 30px; background:#3b52d4; color:white; border:none; border-radius:4px; cursor:pointer;
          }
+        button[disabled]{
+            background:#8a94d8; cursor:default;
+        }
+        .tip{
+            text-align:center; color:#888; font-size:13px; margin-top:8px;
+        }
+        .student-actions{
+            margin:8px 0;
+            font-size:13px;
+        }
+        .student-actions button{
+            padding:3px 12px;
+            font-size:12px;
+            margin-left:8px;
+        }
         .msg{
             text-align:center; color:#d00; margin:10px 0;
          }
@@ -61,7 +76,7 @@
             text-align:center;
             font-size:13px;
         }
-        .pager a, .pager span.disabled, .pager button {
+        .pager a, .pager span.disabled {
             display:inline-block;
             padding:3px 9px;
             margin:0 3px;
@@ -73,16 +88,6 @@
             font-size:13px;
             line-height:1.4;
         }
-        .pager button {
-            cursor:pointer;
-            font-family:inherit;
-        }
-        .pager button.active {
-            background:#3b52d4;
-            color:#fff;
-            border-color:#3b52d4;
-            cursor:default;
-        }
         .pager span.disabled {
             color:#aaa;
             border-color:#eee;
@@ -92,13 +97,18 @@
             margin-left:8px;
             color:#666;
         }
-        .pick-btn {
+        a.pick-btn {
+            display:inline-block;
             padding:3px 10px;
             font-size:12px;
+            background:#3b52d4;
+            color:white;
+            border-radius:4px;
+            text-decoration:none;
         }
-        .pick-btn[disabled] {
-            background:#8a94d8;
-            cursor:default;
+        span.picked {
+            font-size:12px;
+            color:#3b52d4;
         }
     </style>
 </head>
@@ -113,134 +123,145 @@
         <div class="msg" style="color:#333;">{{ search_message }}</div>
         {% endif %}
 
-        <!-- 搜索学生（搜索条件会随学生分页一并保留） -->
+        <!-- 搜索学生 -->
         <div class="search">
             <form method="GET" action="/student/choose_class" id="searchForm">
+                {# 搜索时保留已勾选的学生 #}
+                {% for sid in select_ids %}
+                <input type="hidden" name="select_id" value="{{ sid }}">
+                {% endfor %}
                 <input type="text" name="student_id" placeholder="学号" value="{{ student_id|default('') }}">
                 <input type="text" name="student_name" placeholder="姓名" value="{{ student_name|default('') }}">
                 <input type="text" name="college" placeholder="学院" value="{{ college|default('') }}">
-                <input type="hidden" name="course_page" value="{{ course_page }}">
                 <button type="submit">搜索</button>
-                <a href="/student/choose_class?course_page={{ course_page }}">重置</a>
+                <a href="/student/choose_class">重置</a>
             </form>
         </div>
 
-        <!-- 选课表单：保存选课 / 课程翻页 / 切换学生 都提交本表单，靠 formaction 区分 -->
-        <form method="POST" action="/student/choose_class/submit" id="chooseForm">
-            {# 提交后回到当前分页 / 搜索条件 #}
-            <input type="hidden" name="course_page" value="{{ course_page }}">
-            <input type="hidden" name="student_page" value="{{ student_page }}">
-            <input type="hidden" name="q_student_id" value="{{ student_id|default('') }}">
-            <input type="hidden" name="q_student_name" value="{{ student_name|default('') }}">
-            <input type="hidden" name="q_college" value="{{ college|default('') }}">
-            {# 当前正在编辑选课的学生（翻页/切换/保存时用于合并草稿） #}
-            <input type="hidden" name="current_select_id" value="{{ select_id }}">
-            <input type="hidden" name="student_id" value="{{ select_id }}">
+        <!-- 左：课程表单（POST 保存）；右：学生表单（GET，勾选后点「确定选择」刷新） -->
+        <div class="box-row">
+            <!-- 左侧：全部课程，复选框多选；未选学生时禁用 -->
+            <form class="col" method="POST" action="/student/choose_class/submit" id="chooseForm">
+                {# 提交后回到当前学生分页 / 搜索条件 #}
+                <input type="hidden" name="student_page" value="{{ student_page }}">
+                <input type="hidden" name="q_student_id" value="{{ student_id|default('') }}">
+                <input type="hidden" name="q_student_name" value="{{ student_name|default('') }}">
+                <input type="hidden" name="q_college" value="{{ college|default('') }}">
+                {# 已选学生全部以隐藏域提交（学生复选框在右侧 GET 表单里） #}
+                {% for sid in select_ids %}
+                <input type="hidden" name="student_id" value="{{ sid }}">
+                {% endfor %}
 
-            <div class="box-row">
-                <!-- 左侧课程列表（多选，分页） -->
-                <div class="col">
-                    <h3>可选课程</h3>
-                    <table>
-                        <tr>
-                            <th>课程编号</th>
-                            <th>课程名称</th>
-                            <th>选择</th>
-                        </tr>
-                        {% for course in courses %}
-                        <tr>
-                            <td>{{ course[0] }}</td>
-                            <td>{{ course[1] }}</td>
-                            <td>
-                                <input type="checkbox" name="course_ids" value="{{ course[0] }}"
-                                    {% if select_id and course[0] in selected_map.get(select_id, []) %}checked{% endif %}>
-                                {# 记录本页出现的全部课程，未勾选的据此退选/从草稿剔除 #}
-                                <input type="hidden" name="page_course_ids" value="{{ course[0] }}">
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </table>
+                <h3>可选课程（多选）</h3>
+                <table>
+                    <tr>
+                        <th>课程编号</th>
+                        <th>课程名称</th>
+                        <th>选择</th>
+                    </tr>
+                    {% for course in courses %}
+                    <tr>
+                        <td>{{ course[0] }}</td>
+                        <td>{{ course[1] }}</td>
+                        <td>
+                            <input type="checkbox" name="course_ids" value="{{ course[0] }}"
+                                {% if course[0] in selected_course_ids %}checked{% endif %}
+                                {% if not select_ids %}disabled{% endif %}>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </table>
 
-                    <!-- 课程分页：提交表单以保存当前页勾选后再跳转 -->
-                    <div class="pager">
-                        {% if course_page == 1 %}
-                            <span class="disabled">上一页</span>
+                <div class="submit-area">
+                    <button type="submit" {% if not select_ids %}disabled{% endif %}>保存选课</button>
+                    <div class="tip">
+                        {% if select_ids|length == 1 %}
+                            当前学生：{{ select_ids[0] }}，勾选/取消课程后点「保存选课」即可（单选为全量替换，可以退课）。
+                        {% elif select_ids|length > 1 %}
+                            已选 {{ select_ids|length }} 名学生：勾选课程后点「保存选课」，会把这些课程<strong>添加</strong>给每位学生（已选的自动跳过，批量不能退课）。
                         {% else %}
-                            <button type="submit" formaction="/student/choose_class/course_page"
-                                    name="target_page" value="{{ course_page - 1 }}">上一页</button>
+                            请先在右侧勾选学生并点「确定选择」，再回来勾选课程。
                         {% endif %}
-
-                        {% for p in range(1, course_total_page + 1) %}
-                            {% if p == course_page %}
-                                <button type="button" class="active" disabled>{{ p }}</button>
-                            {% else %}
-                                <button type="submit" formaction="/student/choose_class/course_page"
-                                        name="target_page" value="{{ p }}">{{ p }}</button>
-                            {% endif %}
-                        {% endfor %}
-
-                        {% if course_page == course_total_page %}
-                            <span class="disabled">下一页</span>
-                        {% else %}
-                            <button type="submit" formaction="/student/choose_class/course_page"
-                                    name="target_page" value="{{ course_page + 1 }}">下一页</button>
-                        {% endif %}
-                        <span class="info">第 {{ course_page }}/{{ course_total_page }} 页</span>
                     </div>
                 </div>
+            </form>
 
-                <!-- 右侧学生列表（单选，分页） -->
-                <div class="col">
-                    <h3>选择学生</h3>
-                    <table>
-                        <tr>
-                            <th>学号</th>
-                            <th>姓名</th>
-                            <th>学院</th>
-                            <th>选择</th>
-                        </tr>
-                        {% for student in students %}
-                        <tr class="{% if student[0] == select_id %}selected{% endif %}">
-                            <td>{{ student[0] }}</td>
-                            <td>{{ student[1] }}</td>
-                            <td>{{ student[2] }}</td>
-                            <td>
-                                <button type="submit"
-                                        formaction="/student/choose_class/switch"
-                                        name="new_student_id"
-                                        value="{{ student[0] }}"
-                                        class="pick-btn"
-                                        {% if student[0] == select_id %}disabled{% endif %}>
-                                    {% if student[0] == select_id %}已选{% else %}选择{% endif %}
-                                </button>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </table>
+            <!-- 右侧：学生列表，复选框可勾选多名学生；勾选后点「确定选择」生效 -->
+            <form class="col" method="GET" action="/student/choose_class" id="studentForm">
+                {# 确定选择时保留当前分页与搜索条件 #}
+                <input type="hidden" name="student_page" value="{{ student_page }}">
+                <input type="hidden" name="student_id" value="{{ student_id|default('') }}">
+                <input type="hidden" name="student_name" value="{{ student_name|default('') }}">
+                <input type="hidden" name="college" value="{{ college|default('') }}">
+                {# 跨页已选学生：当前页不可见的选中项用隐藏域保留 #}
+                {% for sid in hidden_select_ids %}
+                <input type="hidden" name="select_id" value="{{ sid }}">
+                {% endfor %}
 
-                    <!-- 学生分页（携带搜索条件） -->
-                    <div class="pager">
-                        {% set q = 'student_id=' ~ (student_id|default('')) ~ '&student_name=' ~ (student_name|default('')) ~ '&college=' ~ (college|default('')) %}
-                        {% if student_page == 1 %}
-                            <span class="disabled">上一页</span>
-                        {% else %}
-                            <a href="/student/choose_class?{{ q }}&course_page={{ course_page }}&student_page={{ student_page - 1 }}{% if select_id %}&select_id={{ select_id }}{% endif %}">上一页</a>
-                        {% endif %}
-
-                        {% if student_page == student_total_page %}
-                            <span class="disabled">下一页</span>
-                        {% else %}
-                            <a href="/student/choose_class?{{ q }}&course_page={{ course_page }}&student_page={{ student_page + 1 }}{% if select_id %}&select_id={{ select_id }}{% endif %}">下一页</a>
-                        {% endif %}
-                        <span class="info">第 {{ student_page }}/{{ student_total_page }} 页</span>
-                    </div>
+                <h3>选择学生（可多选）</h3>
+                <div class="student-actions">
+                    <a href="{{ url_for('choose_class',
+                            select_id=page_all_select_ids,
+                            student_page=student_page,
+                            student_id=student_id|default(''),
+                            student_name=student_name|default(''),
+                            college=college|default('')) }}">全选本页</a>
+                    |
+                    <a href="{{ url_for('choose_class',
+                            student_page=student_page,
+                            student_id=student_id|default(''),
+                            student_name=student_name|default(''),
+                            college=college|default('')) }}">清空选择</a>
+                    <button type="submit">确定选择</button>
                 </div>
-            </div>
+                <table>
+                    <tr>
+                        <th>选择</th>
+                        <th>学号</th>
+                        <th>姓名</th>
+                        <th>学院</th>
+                    </tr>
+                    {% for student in students %}
+                    <tr class="{% if student[0] in select_set %}selected{% endif %}">
+                        <td>
+                            <input type="checkbox" name="select_id"
+                                value="{{ student[0] }}"
+                                {% if student[0] in select_set %}checked{% endif %}>
+                        </td>
+                        <td>{{ student[0] }}</td>
+                        <td>{{ student[1] }}</td>
+                        <td>{{ student[2] }}</td>
+                    </tr>
+                    {% endfor %}
+                </table>
 
-            <div class="submit-area">
-                <button type="submit">保存选课</button>
-            </div>
-        </form>
+                <!-- 学生分页（携带搜索条件与已选学生） -->
+                <div class="pager">
+                    {% if student_page == 1 %}
+                        <span class="disabled">上一页</span>
+                    {% else %}
+                        <a href="{{ url_for('choose_class',
+                                select_id=select_ids,
+                                student_page=student_page - 1,
+                                student_id=student_id|default(''),
+                                student_name=student_name|default(''),
+                                college=college|default('')) }}">上一页</a>
+                    {% endif %}
+
+                    {% if student_page == student_total_page %}
+                        <span class="disabled">下一页</span>
+                    {% else %}
+                        <a href="{{ url_for('choose_class',
+                                select_id=select_ids,
+                                student_page=student_page + 1,
+                                student_id=student_id|default(''),
+                                student_name=student_name|default(''),
+                                college=college|default('')) }}">下一页</a>
+                    {% endif %}
+                    <span class="info">第 {{ student_page }}/{{ student_total_page }} 页</span>
+                </div>
+            </form>
+        </div>
 
         <div class="back">
             <a href="/student/list">← 返回学生列表</a>

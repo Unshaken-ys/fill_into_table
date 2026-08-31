@@ -70,19 +70,6 @@ def clamp_page(page, total_page):
     return max(1, min(page, total_page))
 
 
-def _merge_course_draft(select_id, submitted_ids, page_ids):
-    """把当前课程页的勾选合并进 session 中的选课草稿（跨页保留，不依赖 JS）。
-    当前页上的课程以本次提交为准（未勾选即退选），其它页保持原值。"""
-    if not select_id:
-        return
-    draft = session.get('course_draft') or {}
-    selected = set(draft.get(select_id) or [])
-    page_set = set(page_ids or [])
-    selected = (selected - page_set) | set(submitted_ids or [])
-    draft[select_id] = list(selected)
-    session['course_draft'] = draft
-
-
 # ====== 分页获取学生数据 ======
 def get_user_by_page(page, page_size):
     offset = (page - 1) * page_size
@@ -300,18 +287,13 @@ def to_excel():
 
 
 # ====== 学生选课系统（GET：选课界面） ======
+# 课程一页全部展示，复选框多选；学生也可多选（?select_id=a&select_id=b）。
+# 右侧学生勾选后点「确定选择」GET 刷新：单选时按中间表回显其已选课程，多选时课程留空。
+# 跨页/跨搜索的已选学生靠隐藏域保留。
 @app.route('/student/choose_class')
 def choose_class():
-    # 左侧：课程列表（课程编号、课程名称）—— 分页
-    course_page = request.args.get('course_page', 1, type=int)
-    course_total = db_query_one("SELECT COUNT(*) FROM course")[0]
-    course_total_page = calc_total_page(course_total)
-    course_page = clamp_page(course_page, course_total_page)
-    course_offset = (course_page - 1) * PAGE_SIZE
-    courses = db_query(
-        "SELECT course_id, course_name FROM course ORDER BY course_id LIMIT %s, %s",
-        (course_offset, PAGE_SIZE)
-    )
+    # 左侧：全部课程（课程编号、课程名称）
+    courses = db_query("SELECT course_id, course_name FROM course ORDER BY course_id")
 
     # 右侧：学生列表（学号、姓名、学院）—— 支持模糊查询 + 分页
     student_id, student_name, college = get_search_params()
@@ -329,146 +311,120 @@ def choose_class():
         params + [student_offset, PAGE_SIZE]
     )
 
-    # 已保存到数据库的选课记录（供未编辑过的学生显示已选状态）
-    selected_map = {}
-    for sid, cid in db_query("SELECT student_id, course_id FROM student_course"):
-        selected_map.setdefault(sid, []).append(cid)
+    # 当前选课学生：支持多选（?select_id=a&select_id=b），去重保序
+    select_ids = list(dict.fromkeys(
+        s.strip() for s in request.args.getlist('select_id') if s.strip()
+    ))
+    select_set = set(select_ids)
 
-    # 选课提交后跳回时携带：当前学生与提示信息
-    select_id = request.args.get('select_id', '').strip()
+    # 回显勾选状态：仅选中一名学生时，按其已选课程回显
+    selected_course_ids = []
+    if len(select_ids) == 1:
+        selected_course_ids = [row[0] for row in db_query(
+            "SELECT course_id FROM student_course WHERE student_id = %s ORDER BY course_id",
+            (select_ids[0],)
+        )]
+
+    # 当前页学生学号：用于「全选本页」链接与跨页隐藏域判断
+    page_student_ids = [s[0] for s in students]
+    page_all_select_ids = list(dict.fromkeys(select_ids + page_student_ids))
+
+    # 跨页已选学生：当前页之外的选中项用隐藏域保留，翻页/搜索后不丢失
+    hidden_select_ids = [sid for sid in select_ids if sid not in set(page_student_ids)]
+
     message = request.args.get('msg', '').strip()
-
     search_message = f'找到 {student_total} 条学生记录' if (student_id or student_name or college) else ''
-
-    # 以当前学生的草稿覆盖已保存记录（草稿里的内容是用户在各页的最新勾选）
-    if select_id:
-        draft = session.get('course_draft') or {}
-        if select_id in draft:
-            selected_map[select_id] = draft[select_id]
 
     return render_template(
         'student_choose_class.html',
         courses=courses,
         students=students,
-        selected_map=selected_map,
-        select_id=select_id,
+        selected_course_ids=selected_course_ids,
+        select_ids=select_ids,
+        select_set=select_set,
+        page_all_select_ids=page_all_select_ids,
+        hidden_select_ids=hidden_select_ids,
         message=message,
         student_id=student_id,
         student_name=student_name,
         college=college,
         search_message=search_message,
-        course_page=course_page,
-        course_total_page=course_total_page,
         student_page=student_page,
         student_total_page=student_total_page,
-        page_size=PAGE_SIZE,
     )
-
-
-# ====== 切换学生（POST）：保存当前学生本页勾选进草稿，再按新学生重定向 ======
-@app.route('/student/choose_class/switch', methods=['POST'])
-def choose_class_switch():
-    current_select_id = request.form.get('current_select_id', '').strip()
-    new_select_id = request.form.get('new_student_id', '').strip()
-    submitted_ids = request.form.getlist('course_ids')
-    page_ids = request.form.getlist('page_course_ids')
-    if current_select_id:
-        _merge_course_draft(current_select_id, submitted_ids, page_ids)
-
-    return redirect(url_for(
-        'choose_class',
-        select_id=new_select_id,
-        course_page=request.form.get('course_page', 1, type=int),
-        student_page=request.form.get('student_page', 1, type=int),
-        student_id=request.form.get('q_student_id', '').strip(),
-        student_name=request.form.get('q_student_name', '').strip(),
-        college=request.form.get('q_college', '').strip(),
-    ))
-
-
-# ====== 课程翻页（POST）：先把当前页勾选合并进草稿，再重定向到目标页 ======
-@app.route('/student/choose_class/course_page', methods=['POST'])
-def choose_class_course_page():
-    select_id = request.form.get('student_id', '').strip()
-    submitted_ids = request.form.getlist('course_ids')
-    page_ids = request.form.getlist('page_course_ids')
-    _merge_course_draft(select_id, submitted_ids, page_ids)
-
-    return redirect(url_for(
-        'choose_class',
-        select_id=select_id,
-        course_page=request.form.get('target_page', 1, type=int),
-        student_page=request.form.get('student_page', 1, type=int),
-        student_id=request.form.get('q_student_id', '').strip(),
-        student_name=request.form.get('q_student_name', '').strip(),
-        college=request.form.get('q_college', '').strip(),
-    ))
 
 
 # ====== 学生选课系统（POST：保存选课结果） ======
+# 学生可多选：复选框 + 跨页隐藏域都以 student_id 为名提交，用 getlist 收取。
+# 单选一名学生时全量替换（可退课）；多选学生时批量添加（INSERT IGNORE 跳过已选，
+# 不影响各生已有选课）。
 @app.route('/student/choose_class/submit', methods=['POST'])
 def choose_class_submit():
-    student_id = request.form.get('student_id', '').strip()
-    submitted_ids = request.form.getlist('course_ids')
-    page_ids = request.form.getlist('page_course_ids')
+    student_ids = list(dict.fromkeys(
+        s.strip() for s in request.form.getlist('student_id') if s.strip()
+    ))
+    course_ids = request.form.getlist('course_ids')  # 复选框：勾选的全部课程编号
 
-    if not student_id:
-        return redirect(url_for('choose_class', msg='请先选择一名学生'))
+    if not student_ids:
+        return redirect(url_for('choose_class', msg='请先勾选至少一名学生'))
 
-    if not db_query_one("SELECT 1 FROM student WHERE student_id = %s", (student_id,)):
+    # 过滤掉不存在的学号
+    valid_student_ids = [
+        sid for sid in student_ids
+        if db_query_one("SELECT 1 FROM student WHERE student_id = %s", (sid,))
+    ]
+    if not valid_student_ids:
         return redirect(url_for('choose_class', msg='学生不存在'))
 
-    # 合并当前页勾选项，得到该学生所有页的最终选课集合
-    _merge_course_draft(student_id, submitted_ids, page_ids)
-    course_ids = (session.get('course_draft') or {}).get(student_id, [])
-    course_ids = [cid for cid in course_ids if db_query_one(
-        "SELECT 1 FROM course WHERE course_id = %s", (cid,))]
+    # 过滤掉不存在的课程编号，顺手去重
+    valid_course_ids = []
+    for cid in dict.fromkeys(course_ids):
+        if db_query_one("SELECT 1 FROM course WHERE course_id = %s", (cid,)):
+            valid_course_ids.append(cid)
 
-    # 该学生当前已选课程编号
-    existing_ids = [row[0] for row in db_query(
-        "SELECT course_id FROM student_course WHERE student_id = %s", (student_id,))]
-
-    # 退选：已选但本次未勾选
-    removed = 0
-    for cid in existing_ids:
-        if cid not in course_ids:
+    if len(valid_student_ids) == 1:
+        # 单选：全量替换——先删掉该学生的所有选课记录，再把本次勾选的插回去
+        sid = valid_student_ids[0]
+        db_execute("DELETE FROM student_course WHERE student_id = %s", (sid,))
+        for cid in valid_course_ids:
             db_execute(
-                "DELETE FROM student_course WHERE student_id = %s AND course_id = %s",
-                (student_id, cid)
+                "INSERT INTO student_course (student_id, course_id) VALUES (%s, %s)",
+                (sid, cid)
             )
-            removed += 1
 
-    # 新增：本次勾选但尚未选
-    added = 0
-    for cid in course_ids:
-        if cid in existing_ids:
-            continue
+        # 回写选课状态：有课程为「已选课」，全部退掉则恢复「未选课」
         db_execute(
-            "INSERT INTO student_course (student_id, course_id) VALUES (%s, %s)",
-            (student_id, cid)
+            "UPDATE student SET class_condition = %s WHERE student_id = %s",
+            ('已选课' if valid_course_ids else '未选课', sid)
         )
-        added += 1
+        msg = f'选课已保存：共选 {len(valid_course_ids)} 门课程'
+    else:
+        # 多选：批量添加——联合主键冲突时跳过，学生已选的课程不受影响
+        for sid in valid_student_ids:
+            for cid in valid_course_ids:
+                db_execute(
+                    "INSERT IGNORE INTO student_course (student_id, course_id) VALUES (%s, %s)",
+                    (sid, cid)
+                )
 
-    # 退选后回写选课状态：仍有课程则「已选课」，全部退掉则恢复「未选课」
-    remaining = db_query_one(
-        "SELECT COUNT(*) FROM student_course WHERE student_id = %s", (student_id,))[0]
-    db_execute(
-        "UPDATE student SET class_condition = %s WHERE student_id = %s",
-        ('已选课' if remaining else '未选课', student_id)
-    )
+        if valid_course_ids:
+            # 触发器已把新增记录的学生置为「已选课」，此处兜底回写
+            placeholders = ','.join(['%s'] * len(valid_student_ids))
+            db_execute(
+                f"UPDATE student SET class_condition = '已选课' "
+                f"WHERE student_id IN ({placeholders})",
+                valid_student_ids
+            )
+            msg = (f'批量选课完成：已为 {len(valid_student_ids)} 名学生添加 '
+                   f'{len(valid_course_ids)} 门课程（已选的自动跳过）')
+        else:
+            msg = f'未勾选课程，{len(valid_student_ids)} 名学生的选课未做修改'
 
-    # 保存成功，清掉该学生的草稿
-    draft = session.get('course_draft') or {}
-    draft.pop(student_id, None)
-    session['course_draft'] = draft
-
-    msg = f'选课已保存：新增 {added} 门，退选 {removed} 门'
-    # 回到提交前所在的分页/搜索条件
+    # 回到提交前所在的学生分页/搜索条件；select_id 传列表，选中状态全部保留
     return redirect(url_for(
         'choose_class',
-        select_id=student_id,
+        select_id=valid_student_ids,
         msg=msg,
-        course_page=request.form.get('course_page', 1, type=int),
         student_page=request.form.get('student_page', 1, type=int),
         student_id=request.form.get('q_student_id', '').strip(),
         student_name=request.form.get('q_student_name', '').strip(),
