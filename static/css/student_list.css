@@ -1,0 +1,54 @@
+/* ===== 学生列表页 ===== */
+h1 { text-align: center; }
+table { border-collapse: collapse; width: 60%; margin: 20px auto; }
+th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+th { background: #f2f2f2; }
+
+/* 搜索 */
+.search {
+    width: 40%;
+    margin: 0 auto;
+    text-align: center;
+}
+/* 搜索提示信息 */
+.message {
+    width: 60%;
+    margin: 15px auto;
+    text-align: center;
+    color: #555;
+}
+/* 插入新数据 */
+.right-block {
+    width: 60%;
+    margin: 10px auto;
+    text-align: right;
+}
+/* 分页样式 */
+.page-box {
+    width: 60%;
+    margin: 0 auto;
+    text-align: center;
+}
+.page-box a {
+    padding: 4px 10px;
+    margin: 0 4px;
+    border: 1px solid #999;
+    text-decoration: none;
+    color: #333;
+}
+.page-box a.active {
+    background: #007bff;
+    color: #fff;
+    border-color: #007bff;
+}
+.disabled {
+    padding: 4px 10px;
+    margin: 0 4px;
+    color: #aaa;
+    border: 1px solid #eee;
+}
+.page-info {
+    width: 60%;
+    margin: 30px auto;
+    text-align: center;
+}

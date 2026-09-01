@@ -1,1 +1,16 @@
+# 真实数据库配置（含密码），不入库；模板见 config_example.py
 config.py
+
+# Python 缓存
+__pycache__/
+*.pyc
+
+# 虚拟环境
+venv/
+.venv/
+
+# Flask 实例目录
+instance/
+
+# 导出的 Excel 产物（运行时生成，export/ 目录靠 .gitkeep 保留）
+export/*.xlsx

@@ -1,0 +1,14 @@
+/* ===== 欢迎页 ===== */
+.welcome { text-align: center; margin-top: 80px; }
+.welcome h1 { color: #333; }
+.welcome p { color: #666; }
+.welcome .enter {
+    display: inline-block;
+    margin-top: 20px;
+    padding: 10px 24px;
+    background: #3b52d4;
+    color: #fff;
+    text-decoration: none;
+    border-radius: 4px;
+}
+.welcome a { color: #3b52d4; }

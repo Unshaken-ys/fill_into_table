@@ -1,0 +1,124 @@
+/* ===== 学生选课页 ===== */
+body {
+    background: #f4f4f4;
+    padding: 20px;
+}
+h1 {
+    text-align: center;
+}
+.wrap {
+    width: 1000px;
+    margin: 0 auto;
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+}
+.search {
+    text-align: center;
+    margin-bottom: 20px;
+}
+.search input {
+    padding: 5px;
+    margin: 0 3px;
+}
+.box-row {
+    display: flex;
+    gap: 30px;
+}
+.col {
+    flex: 1;
+}
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+th, td {
+    border: 1px solid #ccc;
+    padding: 7px;
+}
+th {
+    background: #eee;
+}
+tr.selected td {
+    background: #eef1fc;
+}
+.submit-area {
+    text-align: center;
+    margin-top: 25px;
+}
+button {
+    padding: 8px 30px;
+    background: #3b52d4;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+button[disabled] {
+    background: #8a94d8;
+    cursor: default;
+}
+.tip {
+    text-align: center;
+    color: #888;
+    font-size: 13px;
+    margin-top: 8px;
+}
+.student-actions {
+    margin: 8px 0;
+    font-size: 13px;
+}
+.student-actions button {
+    padding: 3px 12px;
+    font-size: 12px;
+    margin-left: 8px;
+}
+.msg {
+    text-align: center;
+    color: #d00;
+    margin: 10px 0;
+}
+.back {
+    text-align: center;
+    margin-top: 15px;
+}
+/* 分页 */
+.pager {
+    margin-top: 10px;
+    text-align: center;
+    font-size: 13px;
+}
+.pager a, .pager span.disabled {
+    display: inline-block;
+    padding: 3px 9px;
+    margin: 0 3px;
+    border: 1px solid #bbb;
+    text-decoration: none;
+    color: #333;
+    border-radius: 3px;
+    background: #fff;
+    font-size: 13px;
+    line-height: 1.4;
+}
+.pager span.disabled {
+    color: #aaa;
+    border-color: #eee;
+    background: #fafafa;
+}
+.pager .info {
+    margin-left: 8px;
+    color: #666;
+}
+a.pick-btn {
+    display: inline-block;
+    padding: 3px 10px;
+    font-size: 12px;
+    background: #3b52d4;
+    color: white;
+    border-radius: 4px;
+    text-decoration: none;
+}
+span.picked {
+    font-size: 12px;
+    color: #3b52d4;
+}

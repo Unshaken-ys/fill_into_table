@@ -4,7 +4,7 @@ import pymysql
 import math
 import os
 from config  import DB_CONFIG
-# from config_exemple import DB_CONFIG
+# from config_example import DB_CONFIG
 from openpyxl import Workbook, load_workbook
 from werkzeug.security import generate_password_hash, check_password_hash
 

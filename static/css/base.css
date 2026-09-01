@@ -1,0 +1,22 @@
+/* ===== 全局基础样式 ===== */
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+}
+
+/* ===== 顶部导航栏（templates/_nav.html） ===== */
+.topnav {
+    background-color: #999;
+    color: #fff;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+}
+.topnav a { color: #fff; text-decoration: none; margin: 0 12px; }
+.topnav a:hover { text-decoration: underline; }
+.topnav a.active { font-weight: bold; text-decoration: underline; }
+.topnav .brand { font-weight: bold; font-size: 16px; margin-right: 20px; }
+.topnav .links { flex: 1; }
+.topnav .auth a { margin: 0 6px; }
+.topnav .auth span { margin: 0 6px; color: #eee; }
