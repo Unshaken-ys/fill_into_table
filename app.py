@@ -522,6 +522,12 @@ def student_import():
 
 
 
+# ====== 任务清单 ======
+@app.route('/student/mission_list')
+def mission_list():
+    return render_template('mission_list.html')
+
+
 # ====== 退出登录 ======
 @app.route('/student/logout')
 def student_logout():

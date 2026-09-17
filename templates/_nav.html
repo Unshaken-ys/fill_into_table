@@ -6,6 +6,7 @@
         <a href="/student/list" class="{{ 'active' if request.path == '/student/list' }}">学生列表</a>
         <a href="/student/choose_class" class="{{ 'active' if request.path == '/student/choose_class' }}">学生选课</a>
         <a href="/student/insert" class="{{ 'active' if request.path == '/student/insert' }}">新增学生</a>
+        <a href="/student/mission_list" class="{{ 'active' if request.path == '/student/mission_list' }}">任务清单</a>
     </div>
     <div class="auth">
         {% if session.get('admin') %}

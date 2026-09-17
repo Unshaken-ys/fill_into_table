@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>任务清单</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mission_list.css') }}">
+</head>
+<body>
+    {% include '_nav.html' %}
+
+    <div class="mission-page">
+        <h2>任务清单</h2>
+
+        <div class="mission-input">
+            <input class="literal_field" placeholder="输入你的任务，回车或点添加">
+            <button id="input1" type="button">添加</button>
+        </div>
+
+        <ul class="list"></ul>
+    </div>
+
+    <!-- 放在 body 末尾，执行时上面的元素已经存在 -->
+    <script src="{{ url_for('static', filename='js/mission_list.js') }}"></script>
+</body>
+</html>
