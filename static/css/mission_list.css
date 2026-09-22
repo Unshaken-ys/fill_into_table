@@ -67,3 +67,8 @@
     cursor: pointer;
 }
 .list li .rubbish_bin:hover { opacity: 0.6; }
+
+/* 勾选完成的任务：文字变灰加删除线。删除线只挂 label，
+   挂 li 上的话会向流内后代传播，垃圾桶图标也会跟着被划一道 */
+.list li.done { color: #999; }
+.list li.done label { text-decoration: line-through; }

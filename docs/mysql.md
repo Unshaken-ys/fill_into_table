@@ -37,9 +37,23 @@ create table student_course(
         ON DELETE CASCADE
         ON UPDATE CASCADE
 );
-select *from student;
-select * from course ; 
-select * from student_course;
+
+-- 任务清单表，关联admin管理员表
+CREATE TABLE todo_task(
+    task_id INT AUTO_INCREMENT PRIMARY KEY COMMENT '任务主键自增',
+    username VARCHAR(20) NOT NULL COMMENT '所属管理员账号，关联admin表',
+    task_text VARCHAR(200) NOT NULL COMMENT '任务内容',
+    is_finished TINYINT DEFAULT 0 COMMENT '0未完成，1已完成',
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    -- 外键关联管理员admin表
+    FOREIGN KEY (username) REFERENCES admin(username)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE
+) COMMENT='管理员任务清单表';
+
+
+
+
 
 drop trigger if exists tr_after_insert_student_course;
 
@@ -55,8 +69,7 @@ begin
 end //
 DELIMITER ;
 
--- 查看已有的触发器
-show triggers;
+
 
 
 

@@ -17,7 +17,7 @@
             <button id="input1" type="button">添加</button>
         </div>
 
-        <ul class="list"></ul>
+        <ul class="list" data-tasks='{{ tasks | tojson }}'></ul>
     </div>
 
     <!-- 放在 body 末尾，执行时上面的元素已经存在 -->

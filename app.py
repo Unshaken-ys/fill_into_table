@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, send_file
+from flask import Flask, render_template, request, redirect, url_for, session, send_file, jsonify
 from io import BytesIO
 import pymysql
 import math
@@ -523,9 +523,38 @@ def student_import():
 
 
 # ====== 任务清单 ======
-@app.route('/student/mission_list')
+# GET：把当前管理员的任务从 todo_task 读出来渲染；
+# POST：前端把整份清单发过来，全量替换（先删后插），保持页面顺序。
+@app.route('/student/mission_list', methods=['GET', 'POST'])
 def mission_list():
-    return render_template('mission_list.html')
+    username = session.get('admin')
+    if not username:
+        return redirect('/student/login')
+
+    if request.method == 'POST':
+        data = request.get_json(silent=True) 
+        db_execute("DELETE FROM todo_task WHERE username = %s", (username,))
+
+        count = 0
+        for mission in data.get('missions', []):
+            text = str(mission.get('text', '')).strip()[:200]
+            if not text:
+                continue
+            db_execute(
+                "INSERT INTO todo_task (username, task_text, is_finished) VALUES (%s, %s, %s)",
+                (username, text, 1 if mission.get('checked') else 0)
+            )
+            count += 1
+
+        return jsonify({'ok': True, 'count': count})
+
+    rows = db_query(
+        "SELECT task_text, is_finished FROM todo_task WHERE username = %s ORDER BY task_id",
+        (username,)
+    )
+    tasks = [{'text': row[0], 'checked': bool(row[1])} for row in rows]
+
+    return render_template('mission_list.html', tasks=tasks)
 
 
 # ====== 退出登录 ======
